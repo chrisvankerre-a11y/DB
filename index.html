@@ -3383,7 +3383,10 @@ if(res.ok){
 
    if(res.ok){
   const j = await res.json(); // réponse du PATCH
-  localStorage.setItem('gist_last_known', j.updated_at || new Date().toISOString());
+	   setKnownVersion(j?.history?.[0]?.version || "");
+	setKnownVersion(gist?.history?.[0]?.version || "");
+
+	   localStorage.setItem('gist_last_known', j.updated_at || new Date().toISOString());
   alert("✅ Sauvegarde dans Gist réussie");
 } else {
   alert("❌ Erreur de sauvegarde");
@@ -3406,6 +3409,10 @@ localStorage.setItem('gist_last_known', remoteUpdatedAt); // on mémorise cette 
 // --- Vérifier régulièrement s'il existe une version plus récente sur le Gist (avec anti-boucle)
 let checkSnoozeUntil = 0; // pour éviter de reposer la question juste après
 
+function setKnownVersion(v){ if(v) localStorage.setItem('gist_last_version', v); }
+function getKnownVersion(){ return localStorage.getItem('gist_last_version') || ""; }
+
+	
 async function checkForRemoteUpdate(){
   if(!GITHUB_TOKEN) return;
   if(Date.now() < checkSnoozeUntil) return;
@@ -3472,6 +3479,7 @@ window.addEventListener("beforeunload", function (e) {
 	
 </body>
 </html>
+
 
 
 
