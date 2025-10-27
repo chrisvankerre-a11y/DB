@@ -3310,106 +3310,119 @@ function exporterHTMLStatique() {
 </div>
 
 <script>
-/* ================== CONFIG ================== */
-const GIST_ID = "5a019fa16da90e04e0feae696d352935";  // Ton Gist ID
+/******** CONFIG ********/
+const GIST_ID = "5a019fa16da90e04e0feae696d352935"; // ton Gist ID
 let GITHUB_TOKEN = localStorage.getItem("gh_token") || null;
 
-/* ================== HELPERS ================== */
-function askTokenIfNeeded({silent=false}={}){
-  if(GITHUB_TOKEN) return true;
-  if(silent) return false; // en vérif auto au démarrage, on ne demande pas
+/******** HELPERS ********/
+function askTokenIfNeeded({silent=false}={}) {
+  if (GITHUB_TOKEN) return true;
+  if (silent) return false;
   const t = prompt("Colle ton token GitHub (scope: gist). Il sera mémorisé localement.");
-  if(t){ GITHUB_TOKEN = t; localStorage.setItem("gh_token", t); return true; }
+  if (t) { GITHUB_TOKEN = t; localStorage.setItem("gh_token", t); return true; }
   return false;
 }
-function dumpLocalStorage(){
-  const o = {};
-  for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); o[k]=localStorage.getItem(k); }
+function dumpLocalStorage() {
+  const o = {}; for (let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); o[k]=localStorage.getItem(k); }
   return o;
 }
-function restoreLocalStorage(d){
-  if(!d || typeof d!=="object") return;
-  localStorage.clear();
-  for(const [k,v] of Object.entries(d)){ localStorage.setItem(k,v); }
+function restoreLocalStorage(d) {
+  if (!d || typeof d!=="object") return;
+  localStorage.clear(); for (const [k,v] of Object.entries(d)) { localStorage.setItem(k,v); }
 }
-
-/* ----- mémoriser la version (SHA) connue du Gist ----- */
 function setKnownVersion(v){ if(v) localStorage.setItem('gist_last_version', v); }
 function getKnownVersion(){ return localStorage.getItem('gist_last_version') || ""; }
 
-/* ================== API ================== */
-async function saveToGist(){
-  if(!askTokenIfNeeded()) return false;
-  try{
-    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`,{
-      method:"PATCH",
-      headers:{ "Authorization":`token ${GITHUB_TOKEN}`, "Content-Type":"application/json" },
-      body: JSON.stringify({
-        files:{ "dashboard.json": { content: JSON.stringify({ localStorageDump: dumpLocalStorage(), exportedAt: new Date().toISOString() }, null, 2) } }
-      })
+/******** API ********/
+async function saveToGist() {
+  if (!askTokenIfNeeded()) return false;
+  try {
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      method: "PATCH",
+      headers: { "Authorization": `token ${GITHUB_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ files: { "dashboard.json": { content: JSON.stringify({ localStorageDump: dumpLocalStorage(), exportedAt: new Date().toISOString() }, null, 2) } } })
     });
-    if(!res.ok) throw new Error("HTTP " + res.status);
+    if (!res.ok) throw new Error("HTTP "+res.status);
     const j = await res.json();
     setKnownVersion(j?.history?.[0]?.version || "");
     alert("✅ Sauvegarde dans Gist réussie");
     return true;
-  }catch(e){
+  } catch(e) {
     alert("❌ Erreur de sauvegarde");
     return false;
   }
 }
 
-async function loadFromGist(){
-  if(!askTokenIfNeeded()) return false;
-  try{
-    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`,{
-      headers:{ "Authorization":`token ${GITHUB_TOKEN}` }
+async function loadFromGist() {
+  if (!askTokenIfNeeded()) return false;
+  try {
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      headers: { "Authorization": `token ${GITHUB_TOKEN}` }
     });
-    if(!res.ok) throw new Error("HTTP " + res.status);
+    if (!res.ok) throw new Error("HTTP "+res.status);
     const gist = await res.json();
     const content = gist.files?.["dashboard.json"]?.content;
-    if(!content) throw new Error("missing");
+    if (!content) throw new Error("missing");
 
-    // mémoriser la version lue AVANT de recharger
-    setKnownVersion(gist?.history?.[0]?.version || "");
+    // mémoriser la version lue AVANT le reload pour éviter toute boucle
+    const remoteVersion = gist?.history?.[0]?.version || "";
+    setKnownVersion(remoteVersion);
 
     const data = JSON.parse(content);
     restoreLocalStorage(data.localStorageDump || {});
     alert("✅ Chargé depuis Gist — la page va se recharger");
+    sessionStorage.setItem("gs_just_loaded_from_gist", "1");
     location.reload();
     return true;
-  }catch(e){
+  } catch(e) {
     alert("❌ Erreur de lecture du Gist");
     return false;
   }
 }
 
-/* ================== DÉTECTION AU DÉMARRAGE UNIQUEMENT ==================
-   - Pas de pop-up au refresh / navigation.
-   - Si (et seulement si) on a un token MÉMORISÉ, on compare la version distante
-     avec la version connue. Si différente → on propose de charger. */
-window.addEventListener('load', async () => {
-  // On ne déclenche rien si pas de token déjà enregistré (pour éviter un prompt intrusif)
-  if(!GITHUB_TOKEN) return;
+/******** LOGIQUE DEMARRAGE — UN SEUL CHECK, JAMAIS AU REFRESH ********/
+/*
+ Règles :
+ - Afficher un confirm de chargement UNIQUEMENT au tout 1er affichage de l’onglet
+   ET seulement si la version distante ≠ version locale connue.
+ - Ne rien faire au refresh / back-forward / après un loadFromGist.
+*/
+window.addEventListener("load", async () => {
+  // 1) Si on vient d’un loadFromGist, ne rien faire
+  if (sessionStorage.getItem("gs_just_loaded_from_gist") === "1") {
+    sessionStorage.removeItem("gs_just_loaded_from_gist");
+    return;
+  }
 
-  try{
-    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`,{
-      headers:{ "Authorization":`token ${GITHUB_TOKEN}` }
+  // 2) Détecter refresh/back-forward → ne rien faire
+  const nav = performance.getEntriesByType && performance.getEntriesByType("navigation")[0];
+  const isReload = nav && (nav.type === "reload" || nav.type === "back_forward");
+  if (isReload) return;
+
+  // 3) Ne checker qu’une seule fois par onglet
+  if (sessionStorage.getItem("gs_startup_checked") === "1") return;
+  sessionStorage.setItem("gs_startup_checked", "1");
+
+  // 4) Si pas de token mémorisé → silence
+  if (!GITHUB_TOKEN) return;
+
+  // 5) Comparer versions : si différente, proposer de charger
+  try {
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      headers: { "Authorization": `token ${GITHUB_TOKEN}` }
     });
-    if(!res.ok) return; // silencieux si erreur réseau
+    if (!res.ok) return;
 
     const gist = await res.json();
     const remoteVersion = gist?.history?.[0]?.version || "";
     const localVersion  = getKnownVersion();
 
-    // On n'alerte que s'il existe une version locale ET qu'elle diffère de la distante
-    if(localVersion && remoteVersion && remoteVersion !== localVersion){
+    if (localVersion && remoteVersion && remoteVersion !== localVersion) {
       const go = confirm("🆕 Des données ont changé sur Gist. Voulez-vous charger la nouvelle version maintenant ?");
-      if(go) { await loadFromGist(); }
+      if (go) await loadFromGist(); // le load mémorise remoteVersion et met un flag pour ne pas re-checker au reload
     }
-    // Premier lancement (sans version locale) : on ne dit rien. L'utilisateur peut cliquer "Charger" si besoin.
-  }catch(e){
-    /* silencieux */
+  } catch(e) {
+    // silencieux en cas d'erreur réseau
   }
 });
 </script>
@@ -3418,6 +3431,7 @@ window.addEventListener('load', async () => {
 	
 </body>
 </html>
+
 
 
 
