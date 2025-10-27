@@ -3310,109 +3310,114 @@ function exporterHTMLStatique() {
 </div>
 
 <script>
-  // 1) CONFIG — ton ID de Gist
-  const GIST_ID = "5a019fa16da90e04e0feae696d352935";
+/* ============ CONFIG ============ */
+const GIST_ID = "5a019fa16da90e04e0feae696d352935";
+let GITHUB_TOKEN = localStorage.getItem("gh_token") || null;
 
-  // 2) On mémorise le token localement (par appareil)
-  let GITHUB_TOKEN = localStorage.getItem("gh_token") || null;
-
-  function askTokenIfNeeded(){
-    if(!GITHUB_TOKEN){
-      const t = prompt("Colle ton token GitHub (scope: gist). Il sera mémorisé localement.");
-      if(t){ GITHUB_TOKEN = t; localStorage.setItem("gh_token", t); }
-    }
-    return !!GITHUB_TOKEN;
+/* ============ HELPERS ============ */
+function askTokenIfNeeded(){
+  if(!GITHUB_TOKEN){
+    const t = prompt("Colle ton token GitHub (scope: gist). Il sera mémorisé localement.");
+    if(t){ GITHUB_TOKEN = t; localStorage.setItem("gh_token", t); }
   }
-
-  // 3) Snapshot: tout le localStorage → objet
-  function dumpLocalStorage(){
-    const obj = {};
-    for(let i=0;i<localStorage.length;i++){
-      const k = localStorage.key(i);
-      obj[k] = localStorage.getItem(k);
-    }
-    return obj;
-  }
-
-  // 4) Restauration: objet → localStorage
-  function restoreLocalStorage(dump){
-    if(!dump || typeof dump !== "object"){ alert("Snapshot invalide"); return; }
-    localStorage.clear();
-    for(const [k,v] of Object.entries(dump)){ localStorage.setItem(k, v); }
-  }
-
-  // 5) Sauvegarder vers le Gist
-  async function saveToGist(){
-    if(!askTokenIfNeeded()) return;
-
-    const body = {
-      files: {
-        "dashboard.json": {
-          content: JSON.stringify({
-            localStorageDump: dumpLocalStorage(),
-            exportedAt: new Date().toISOString()
-          }, null, 2)
-        }
-      }
-    };
-
-    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-      method: "PATCH",
-      headers: {
-        "Authorization": `token ${GITHUB_TOKEN}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(body)
-    });
-
-if(res.ok){
-  localStorage.setItem('gist_last_known', new Date().toISOString());
+  return !!GITHUB_TOKEN;
 }
 
-	  
-    alert(res.ok ? "✅ Sauvegarde dans Gist réussie" : "❌ Erreur de sauvegarde");
+function dumpLocalStorage(){
+  const obj = {};
+  for(let i=0;i<localStorage.length;i++){
+    const k = localStorage.key(i);
+    obj[k] = localStorage.getItem(k);
   }
-
-  // 6) Charger depuis le Gist
-  async function loadFromGist(){
-    if(!askTokenIfNeeded()) return;
-
-    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-      headers: { "Authorization": `token ${GITHUB_TOKEN}` }
-    });
-
-   if(res.ok){
-  const j = await res.json(); // réponse du PATCH
-	   setKnownVersion(j?.history?.[0]?.version || "");
-	setKnownVersion(gist?.history?.[0]?.version || "");
-
-	   localStorage.setItem('gist_last_known', j.updated_at || new Date().toISOString());
-  alert("✅ Sauvegarde dans Gist réussie");
-} else {
-  alert("❌ Erreur de sauvegarde");
+  return obj;
 }
 
-    const gist = await res.json();
-	  const remoteUpdatedAt = gist.updated_at;               // date/heure de la dernière MAJ du Gist
-localStorage.setItem('gist_last_known', remoteUpdatedAt); // on mémorise cette date localement
+function restoreLocalStorage(dump){
+  if(!dump || typeof dump !== "object"){ alert("Snapshot invalide"); return; }
+  localStorage.clear();
+  for(const [k,v] of Object.entries(dump)){ localStorage.setItem(k, v); }
+}
 
-    const content = gist.files?.["dashboard.json"]?.content;
-    if(!content){ alert("❌ Fichier dashboard.json introuvable dans le Gist"); return; }
-
-    const data = JSON.parse(content);
-    restoreLocalStorage(data.localStorageDump || {});
-    alert("✅ Restauration réussie — la page va se recharger");
-    location.reload();
-  }
-
-// --- Vérifier régulièrement s'il existe une version plus récente sur le Gist
-// --- Vérifier régulièrement s'il existe une version plus récente sur le Gist (avec anti-boucle)
-let checkSnoozeUntil = 0; // pour éviter de reposer la question juste après
-
+/* On mémorise la version (SHA) connue du Gist pour éviter les re-popups */
 function setKnownVersion(v){ if(v) localStorage.setItem('gist_last_version', v); }
 function getKnownVersion(){ return localStorage.getItem('gist_last_version') || ""; }
 
-	
+/* ============ SAUVEGARDE ============ */
+async function saveToGist(){
+  if(!askTokenIfNeeded()) return;
+
+  const body = {
+    files: {
+      "dashboard.json": {
+        content: JSON.stringify({
+          localStorageDump: dumpLocalStorage(),
+          exportedAt: new Date().toISOString()
+        }, null, 2)
+      }
+    }
+  };
+
+  const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+    method: "PATCH",
+    headers: {
+      "Authorization": `token ${GITHUB_TOKEN}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+
+  if(res.ok){
+    const j = await res.json();                // réponse du PATCH
+    setKnownVersion(j?.history?.[0]?.version || "");
+    localStorage.setItem('gist_last_known', j.updated_at || new Date().toISOString());
+    alert("✅ Sauvegarde dans Gist réussie");
+  } else {
+    alert("❌ Erreur de sauvegarde");
+  }
+}
+
+/* Sauvegarde “keepalive” pour la fermeture d’onglet (limite ~64 Ko) */
+function quickSaveToGistKeepAlive(){
+  try{
+    if(!GITHUB_TOKEN) return;
+    const body = JSON.stringify({
+      files:{ "dashboard.json": { content: JSON.stringify({ localStorageDump: dumpLocalStorage(), exportedAt: new Date().toISOString() }) } }
+    });
+    // keepalive démarre l’envoi même si la page se ferme
+    fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      method: "PATCH",
+      headers: { "Authorization": `token ${GITHUB_TOKEN}`, "Content-Type": "application/json" },
+      body,
+      keepalive: true
+    });
+  }catch(e){ /* ignorer */ }
+}
+
+/* ============ CHARGEMENT ============ */
+async function loadFromGist(){
+  if(!askTokenIfNeeded()) return;
+
+  const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+    headers: { "Authorization": `token ${GITHUB_TOKEN}` }
+  });
+  if(!res.ok){ alert("❌ Erreur de lecture du Gist"); return; }
+
+  const gist = await res.json();
+  setKnownVersion(gist?.history?.[0]?.version || "");
+  localStorage.setItem('gist_last_known', gist.updated_at || new Date().toISOString());
+
+  const content = gist.files?.["dashboard.json"]?.content;
+  if(!content){ alert("❌ Fichier dashboard.json introuvable dans le Gist"); return; }
+
+  const data = JSON.parse(content);
+  restoreLocalStorage(data.localStorageDump || {});
+  alert("✅ Restauration réussie — la page va se recharger");
+  location.reload();
+}
+
+/* ============ DÉTECTION VERSION DISTANTE (anti-boucle) ============ */
+let checkSnoozeUntil = 0;
+
 async function checkForRemoteUpdate(){
   if(!GITHUB_TOKEN) return;
   if(Date.now() < checkSnoozeUntil) return;
@@ -3423,62 +3428,61 @@ async function checkForRemoteUpdate(){
   if(!res.ok) return;
 
   const gist = await res.json();
-  const remote = gist.updated_at;                               // date distante
-  const local  = localStorage.getItem('gist_last_known') || ""; // dernière date connue
+  const remoteVersion = gist?.history?.[0]?.version || "";
+  const localVersion  = getKnownVersion();
 
-  // si pas plus récent, on sort
-  if(remote && local && Date.parse(remote) <= Date.parse(local)) return;
+  if(!remoteVersion || remoteVersion === localVersion) return; // rien de nouveau
 
-  // mémoriser tout de suite la date distante pour éviter le re-pop avant reload
-  if(remote) localStorage.setItem('gist_last_known', remote);
+  // mémoriser tout de suite pour éviter les re-popups
+  setKnownVersion(remoteVersion);
 
   const go = confirm("🆕 Une nouvelle version est disponible. La charger maintenant ?");
   if(go){
-    await loadFromGist(); // fera le reload
+    await loadFromGist();
   }else{
-    // si l'utilisateur refuse, on “snooze” 2 minutes pour ne pas re-pop spam
-    checkSnoozeUntil = Date.now() + 2 * 60 * 1000;
+    checkSnoozeUntil = Date.now() + 2 * 60 * 1000; // snooze 2 min
   }
 }
 
-// Lancer une vérification au démarrage (après 10 s), puis toutes les 5 minutes
+// Premier check après 10s, puis toutes les 5 minutes
 setTimeout(checkForRemoteUpdate, 10_000);
 setInterval(checkForRemoteUpdate, 5 * 60 * 1000);
 
-	
-// --- Détection de modifications locales non sauvegardées
+/* ============ CHANGEMENTS NON SAUVEGARDÉS + QUITTER ============ */
 let dataChanged = false;
 
-// Quand quelque chose change dans le localStorage, on marque le changement
+// marquer les changements quand on écrit dans localStorage
 const originalSetItem = localStorage.setItem;
 localStorage.setItem = function(key, value){
   dataChanged = true;
   originalSetItem.apply(this, arguments);
 };
 
-// Quand on sauvegarde avec "saveToGist", on remet le drapeau à zéro
+// après une sauvegarde, on remet à zéro
 const oldSaveToGist = saveToGist;
 saveToGist = async function(){
   await oldSaveToGist();
   dataChanged = false;
 };
 
-	// --- Avant de quitter la page : alerte si des changements ne sont pas sauvegardés
+// Avertir avant de quitter + lancer une sauvegarde “keepalive” si OK
 window.addEventListener("beforeunload", function (e) {
   if(dataChanged){
-    const message = "⚠️ Attention : changements non sauvegardés. Veux-tu vraiment quitter ?";
+    // démarrer une petite sauvegarde keepalive (meilleure chance d’aboutir si <~64 Ko)
+    quickSaveToGistKeepAlive();
+
+    const message = "⚠️ Changements non sauvegardés. Quitter ?";
     e.preventDefault();
-    e.returnValue = message; // requis pour certains navigateurs
+    e.returnValue = message; // affiche le dialogue natif du navigateur
     return message;
   }
 });
-
-	
 </script>
 
 	
 </body>
 </html>
+
 
 
 
