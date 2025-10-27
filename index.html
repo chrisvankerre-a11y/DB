@@ -3379,6 +3379,9 @@ function exporterHTMLStatique() {
     if(!res.ok){ alert("❌ Erreur de lecture du Gist"); return; }
 
     const gist = await res.json();
+	  const remoteUpdatedAt = gist.updated_at;               // date/heure de la dernière MAJ du Gist
+localStorage.setItem('gist_last_known', remoteUpdatedAt); // on mémorise cette date localement
+
     const content = gist.files?.["dashboard.json"]?.content;
     if(!content){ alert("❌ Fichier dashboard.json introuvable dans le Gist"); return; }
 
@@ -3392,4 +3395,5 @@ function exporterHTMLStatique() {
 	
 </body>
 </html>
+
 
