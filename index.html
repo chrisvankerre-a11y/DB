@@ -3309,5 +3309,87 @@ function exporterHTMLStatique() {
   <button onclick="saveToGist()">Sauvegarder (Gist)</button>
 </div>
 
+<script>
+  // 1) CONFIG — ton ID de Gist
+  const GIST_ID = "5a019fa16da90e04e0feae696d352935";
+
+  // 2) On mémorise le token localement (par appareil)
+  let GITHUB_TOKEN = localStorage.getItem("gh_token") || null;
+
+  function askTokenIfNeeded(){
+    if(!GITHUB_TOKEN){
+      const t = prompt("Colle ton token GitHub (scope: gist). Il sera mémorisé localement.");
+      if(t){ GITHUB_TOKEN = t; localStorage.setItem("gh_token", t); }
+    }
+    return !!GITHUB_TOKEN;
+  }
+
+  // 3) Snapshot: tout le localStorage → objet
+  function dumpLocalStorage(){
+    const obj = {};
+    for(let i=0;i<localStorage.length;i++){
+      const k = localStorage.key(i);
+      obj[k] = localStorage.getItem(k);
+    }
+    return obj;
+  }
+
+  // 4) Restauration: objet → localStorage
+  function restoreLocalStorage(dump){
+    if(!dump || typeof dump !== "object"){ alert("Snapshot invalide"); return; }
+    localStorage.clear();
+    for(const [k,v] of Object.entries(dump)){ localStorage.setItem(k, v); }
+  }
+
+  // 5) Sauvegarder vers le Gist
+  async function saveToGist(){
+    if(!askTokenIfNeeded()) return;
+
+    const body = {
+      files: {
+        "dashboard.json": {
+          content: JSON.stringify({
+            localStorageDump: dumpLocalStorage(),
+            exportedAt: new Date().toISOString()
+          }, null, 2)
+        }
+      }
+    };
+
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      method: "PATCH",
+      headers: {
+        "Authorization": `token ${GITHUB_TOKEN}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    });
+
+    alert(res.ok ? "✅ Sauvegarde dans Gist réussie" : "❌ Erreur de sauvegarde");
+  }
+
+  // 6) Charger depuis le Gist
+  async function loadFromGist(){
+    if(!askTokenIfNeeded()) return;
+
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      headers: { "Authorization": `token ${GITHUB_TOKEN}` }
+    });
+
+    if(!res.ok){ alert("❌ Erreur de lecture du Gist"); return; }
+
+    const gist = await res.json();
+    const content = gist.files?.["dashboard.json"]?.content;
+    if(!content){ alert("❌ Fichier dashboard.json introuvable dans le Gist"); return; }
+
+    const data = JSON.parse(content);
+    restoreLocalStorage(data.localStorageDump || {});
+    alert("✅ Restauration réussie — la page va se recharger");
+    location.reload();
+  }
+</script>
+
+	
 </body>
 </html>
+
