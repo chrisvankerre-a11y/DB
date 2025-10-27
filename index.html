@@ -800,7 +800,14 @@
                         <button class="btn btn-secondary" id="cancelProjetsImport">Annuler</button>
                     </div>
                 </div>
-            </div>
+
+			<div style="margin-top:20px;padding:12px;border:1px solid #facc15;border-radius:8px;background:#fffbea;color:#92400e;display:flex;align-items:center;gap:8px;font:15px/1.4 system-ui;">
+  <span style="font-size:20px;">⚠️</span>
+  <span>Après modification : <strong>sauvegardez vos données (en bas à gauche)</strong> puis fermez la page.</span>
+</div>
+
+			
+			</div>
             
             <!-- Responsables Section -->
             <div id="responsables" class="content-section" style="display: none;">
@@ -3298,12 +3305,9 @@ function exporterHTMLStatique() {
         console.error('Erreur export HTML statique:', error);
         alert('❌ Erreur lors de l\'export: ' + error.message);
     }
+	
 }
 
-<div style="margin-top:20px;padding:12px;border:1px solid #facc15;border-radius:8px;background:#fffbea;color:#92400e;display:flex;align-items:center;gap:8px;font:15px/1.4 system-ui;">
-  <span style="font-size:20px;">⚠️</span>
-  <span>Après modification : <strong>sauvegardez vos données (en bas à gauche)</strong> puis fermez la page.</span>
-</div>
 
     </script>
 
@@ -3435,6 +3439,7 @@ window.addEventListener("load", async () => {
 	
 </body>
 </html>
+
 
 
 
