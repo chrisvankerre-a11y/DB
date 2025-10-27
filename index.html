@@ -3365,6 +3365,11 @@ function exporterHTMLStatique() {
       body: JSON.stringify(body)
     });
 
+if(res.ok){
+  localStorage.setItem('gist_last_known', new Date().toISOString());
+}
+
+	  
     alert(res.ok ? "✅ Sauvegarde dans Gist réussie" : "❌ Erreur de sauvegarde");
   }
 
@@ -3390,10 +3395,36 @@ localStorage.setItem('gist_last_known', remoteUpdatedAt); // on mémorise cette 
     alert("✅ Restauration réussie — la page va se recharger");
     location.reload();
   }
+
+// --- Vérifier régulièrement s'il existe une version plus récente sur le Gist
+async function checkForRemoteUpdate(){
+  // si le token n'est pas encore mémorisé, on ne bloque pas : on attendra le clic utilisateur
+  if(!GITHUB_TOKEN) return;
+
+  const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+    headers: { "Authorization": `token ${GITHUB_TOKEN}` }
+  });
+  if(!res.ok) return;
+
+  const gist = await res.json();
+  const remote = gist.updated_at;                               // date/heure distante
+  const local  = localStorage.getItem('gist_last_known') || ""; // dernière date connue localement
+
+  if(remote && (!local || Date.parse(remote) > Date.parse(local))){
+    const go = confirm("🆕 Une nouvelle version est disponible. La charger maintenant ?");
+    if(go){ await loadFromGist(); }
+  }
+}
+
+// Lancer une vérification au démarrage (après 10 s), puis toutes les 5 minutes
+setTimeout(checkForRemoteUpdate, 10_000);
+setInterval(checkForRemoteUpdate, 5 * 60 * 1000);
+
 </script>
 
 	
 </body>
 </html>
+
 
 
