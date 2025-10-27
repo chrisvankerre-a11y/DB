@@ -3397,9 +3397,12 @@ localStorage.setItem('gist_last_known', remoteUpdatedAt); // on mémorise cette 
   }
 
 // --- Vérifier régulièrement s'il existe une version plus récente sur le Gist
+// --- Vérifier régulièrement s'il existe une version plus récente sur le Gist (avec anti-boucle)
+let checkSnoozeUntil = 0; // pour éviter de reposer la question juste après
+
 async function checkForRemoteUpdate(){
-  // si le token n'est pas encore mémorisé, on ne bloque pas : on attendra le clic utilisateur
   if(!GITHUB_TOKEN) return;
+  if(Date.now() < checkSnoozeUntil) return;
 
   const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
     headers: { "Authorization": `token ${GITHUB_TOKEN}` }
@@ -3407,12 +3410,21 @@ async function checkForRemoteUpdate(){
   if(!res.ok) return;
 
   const gist = await res.json();
-  const remote = gist.updated_at;                               // date/heure distante
-  const local  = localStorage.getItem('gist_last_known') || ""; // dernière date connue localement
+  const remote = gist.updated_at;                               // date distante
+  const local  = localStorage.getItem('gist_last_known') || ""; // dernière date connue
 
-  if(remote && (!local || Date.parse(remote) > Date.parse(local))){
-    const go = confirm("🆕 Une nouvelle version est disponible. La charger maintenant ?");
-    if(go){ await loadFromGist(); }
+  // si pas plus récent, on sort
+  if(remote && local && Date.parse(remote) <= Date.parse(local)) return;
+
+  // mémoriser tout de suite la date distante pour éviter le re-pop avant reload
+  if(remote) localStorage.setItem('gist_last_known', remote);
+
+  const go = confirm("🆕 Une nouvelle version est disponible. La charger maintenant ?");
+  if(go){
+    await loadFromGist(); // fera le reload
+  }else{
+    // si l'utilisateur refuse, on “snooze” 2 minutes pour ne pas re-pop spam
+    checkSnoozeUntil = Date.now() + 2 * 60 * 1000;
   }
 }
 
@@ -3420,11 +3432,41 @@ async function checkForRemoteUpdate(){
 setTimeout(checkForRemoteUpdate, 10_000);
 setInterval(checkForRemoteUpdate, 5 * 60 * 1000);
 
+	
+// --- Détection de modifications locales non sauvegardées
+let dataChanged = false;
+
+// Quand quelque chose change dans le localStorage, on marque le changement
+const originalSetItem = localStorage.setItem;
+localStorage.setItem = function(key, value){
+  dataChanged = true;
+  originalSetItem.apply(this, arguments);
+};
+
+// Quand on sauvegarde avec "saveToGist", on remet le drapeau à zéro
+const oldSaveToGist = saveToGist;
+saveToGist = async function(){
+  await oldSaveToGist();
+  dataChanged = false;
+};
+
+	// --- Avant de quitter la page : alerte si des changements ne sont pas sauvegardés
+window.addEventListener("beforeunload", function (e) {
+  if(dataChanged){
+    const message = "⚠️ Attention : changements non sauvegardés. Veux-tu vraiment quitter ?";
+    e.preventDefault();
+    e.returnValue = message; // requis pour certains navigateurs
+    return message;
+  }
+});
+
+	
 </script>
 
 	
 </body>
 </html>
+
 
 
 
