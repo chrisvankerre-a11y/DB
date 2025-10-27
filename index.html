@@ -3381,7 +3381,13 @@ if(res.ok){
       headers: { "Authorization": `token ${GITHUB_TOKEN}` }
     });
 
-    if(!res.ok){ alert("❌ Erreur de lecture du Gist"); return; }
+   if(res.ok){
+  const j = await res.json(); // réponse du PATCH
+  localStorage.setItem('gist_last_known', j.updated_at || new Date().toISOString());
+  alert("✅ Sauvegarde dans Gist réussie");
+} else {
+  alert("❌ Erreur de sauvegarde");
+}
 
     const gist = await res.json();
 	  const remoteUpdatedAt = gist.updated_at;               // date/heure de la dernière MAJ du Gist
@@ -3466,6 +3472,7 @@ window.addEventListener("beforeunload", function (e) {
 	
 </body>
 </html>
+
 
 
 
