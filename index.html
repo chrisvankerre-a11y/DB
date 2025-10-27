@@ -3303,49 +3303,21 @@ function exporterHTMLStatique() {
 
     </script>
 
-<!-- ======== GIST SYNC — POPUPS CHARGER & SAUVEGARDER ======== -->
-<style>
-  .gs-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:99999}
-  .gs-hidden{display:none}
-  .gs-modal{background:#fff;color:#111;max-width:460px;width:min(92%,460px);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.35);padding:18px 18px 14px;font:14px/1.4 system-ui,Arial}
-  .gs-modal h3{margin:0 0 6px;font-size:18px}
-  .gs-row{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
-  .gs-btn{cursor:pointer;border:0;border-radius:10px;padding:10px 14px;background:#2563eb;color:#fff}
-  .gs-btn.ghost{background:#f3f4f6;color:#111}
-</style>
-
-<!-- Popup CHARGER (s’affiche au démarrage / après refresh) -->
-<div id="gsLoadWrap" class="gs-backdrop gs-hidden" role="dialog" aria-modal="true">
-  <div class="gs-modal">
-    <h3>Charger l’état partagé depuis Gist ?</h3>
-    <p>Cliquer sur “Charger depuis Gist” pour récupérer les données partagées.</p>
-    <div class="gs-row">
-      <button id="gsLoadSkip" class="gs-btn ghost">Plus tard</button>
-      <button id="gsLoadDo" class="gs-btn">Charger depuis Gist</button>
-    </div>
-  </div>
-</div>
-
-<!-- Popup SAUVEGARDER (s’affiche quand on veut quitter/rafraîchir/naviguer) -->
-<div id="gsSaveWrap" class="gs-backdrop gs-hidden" role="dialog" aria-modal="true">
-  <div class="gs-modal">
-    <h3>Sauvegarder avant de quitter ?</h3>
-    <p>Tu es sur le point de quitter cette page. Tu peux d’abord sauvegarder les données vers Gist.</p>
-    <div class="gs-row">
-      <button id="gsSaveSkip" class="gs-btn ghost">Quitter sans sauvegarder</button>
-      <button id="gsSaveDo" class="gs-btn">Sauvegarder vers Gist</button>
-    </div>
-  </div>
+<!-- ======= GIST SYNC — Boutons + Détection de changement au démarrage ======= -->
+<div id="gistButtons" style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;">
+  <button onclick="loadFromGist()">Charger (Gist)</button>
+  <button onclick="saveToGist()">Sauvegarder (Gist)</button>
 </div>
 
 <script>
 /* ================== CONFIG ================== */
-const GIST_ID = "5a019fa16da90e04e0feae696d352935";  // Ton Gist ID (déjà correct)
+const GIST_ID = "5a019fa16da90e04e0feae696d352935";  // Ton Gist ID
 let GITHUB_TOKEN = localStorage.getItem("gh_token") || null;
 
 /* ================== HELPERS ================== */
-function askTokenIfNeeded(){
+function askTokenIfNeeded({silent=false}={}){
   if(GITHUB_TOKEN) return true;
+  if(silent) return false; // en vérif auto au démarrage, on ne demande pas
   const t = prompt("Colle ton token GitHub (scope: gist). Il sera mémorisé localement.");
   if(t){ GITHUB_TOKEN = t; localStorage.setItem("gh_token", t); return true; }
   return false;
@@ -3361,6 +3333,10 @@ function restoreLocalStorage(d){
   for(const [k,v] of Object.entries(d)){ localStorage.setItem(k,v); }
 }
 
+/* ----- mémoriser la version (SHA) connue du Gist ----- */
+function setKnownVersion(v){ if(v) localStorage.setItem('gist_last_version', v); }
+function getKnownVersion(){ return localStorage.getItem('gist_last_version') || ""; }
+
 /* ================== API ================== */
 async function saveToGist(){
   if(!askTokenIfNeeded()) return false;
@@ -3373,6 +3349,8 @@ async function saveToGist(){
       })
     });
     if(!res.ok) throw new Error("HTTP " + res.status);
+    const j = await res.json();
+    setKnownVersion(j?.history?.[0]?.version || "");
     alert("✅ Sauvegarde dans Gist réussie");
     return true;
   }catch(e){
@@ -3391,11 +3369,13 @@ async function loadFromGist(){
     const gist = await res.json();
     const content = gist.files?.["dashboard.json"]?.content;
     if(!content) throw new Error("missing");
+
+    // mémoriser la version lue AVANT de recharger
+    setKnownVersion(gist?.history?.[0]?.version || "");
+
     const data = JSON.parse(content);
     restoreLocalStorage(data.localStorageDump || {});
     alert("✅ Chargé depuis Gist — la page va se recharger");
-    // Marque que ce rechargement provient d’un chargement Gist
-    sessionStorage.setItem("just_loaded_from_gist","1");
     location.reload();
     return true;
   }catch(e){
@@ -3404,117 +3384,41 @@ async function loadFromGist(){
   }
 }
 
-/* ================== POPUP UI ================== */
-const $loadWrap = document.getElementById('gsLoadWrap');
-const $loadDo   = document.getElementById('gsLoadDo');
-const $loadSkip = document.getElementById('gsLoadSkip');
+/* ================== DÉTECTION AU DÉMARRAGE UNIQUEMENT ==================
+   - Pas de pop-up au refresh / navigation.
+   - Si (et seulement si) on a un token MÉMORISÉ, on compare la version distante
+     avec la version connue. Si différente → on propose de charger. */
+window.addEventListener('load', async () => {
+  // On ne déclenche rien si pas de token déjà enregistré (pour éviter un prompt intrusif)
+  if(!GITHUB_TOKEN) return;
 
-const $saveWrap = document.getElementById('gsSaveWrap');
-const $saveDo   = document.getElementById('gsSaveDo');
-const $saveSkip = document.getElementById('gsSaveSkip');
+  try{
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`,{
+      headers:{ "Authorization":`token ${GITHUB_TOKEN}` }
+    });
+    if(!res.ok) return; // silencieux si erreur réseau
 
-/* --- OUVERTURE UNIQUEMENT : pop-up "Charger" --- */
-/* Principe :
-   - On montre "Charger" uniquement si c’est le PREMIER affichage de cet onglet.
-   - Dès que l’onglet s’est affiché une fois, on n’affiche PLUS rien au refresh/retour. */
-window.addEventListener('load', () => {
-  // Si on vient de recharger suite à un "loadFromGist", nettoie le marqueur et ne montre rien
-  if(sessionStorage.getItem("just_loaded_from_gist")==="1"){
-    sessionStorage.removeItem("just_loaded_from_gist");
-    $loadWrap.classList.add('gs-hidden');
-    $saveWrap.classList.add('gs-hidden');
-    return;
+    const gist = await res.json();
+    const remoteVersion = gist?.history?.[0]?.version || "";
+    const localVersion  = getKnownVersion();
+
+    // On n'alerte que s'il existe une version locale ET qu'elle diffère de la distante
+    if(localVersion && remoteVersion && remoteVersion !== localVersion){
+      const go = confirm("🆕 Des données ont changé sur Gist. Voulez-vous charger la nouvelle version maintenant ?");
+      if(go) { await loadFromGist(); }
+    }
+    // Premier lancement (sans version locale) : on ne dit rien. L'utilisateur peut cliquer "Charger" si besoin.
+  }catch(e){
+    /* silencieux */
   }
-
-  // Si c’est la toute première ouverture de cet onglet → montrer "Charger"
-  if(!sessionStorage.getItem("gs_open_seen")){
-    sessionStorage.setItem("gs_open_seen","1");
-    $loadWrap.classList.remove('gs-hidden');
-  }else{
-    // Déjà vu : ne rien montrer (ni charger ni sauvegarder)
-    $loadWrap.classList.add('gs-hidden');
-  }
-
-  // Toujours s'assurer que le pop-up "Sauvegarder" n’est pas visible au chargement
-  $saveWrap.classList.add('gs-hidden');
-  pendingContinue = null;
 });
-
-$loadDo.addEventListener('click', async () => {
-  $loadWrap.classList.add('gs-hidden');
-  await loadFromGist();
-});
-$loadSkip.addEventListener('click', () => {
-  $loadWrap.classList.add('gs-hidden');
-});
-
-/* --- QUITTER/RAFRAÎCHIR : pop-up "Sauvegarder" --- */
-/* Règles :
-   - Intercepter F5 / Ctrl+R / Cmd+R + clics liens → montrer "Sauvegarder".
-   - Après "Sauvegarder", on laisse partir SANS reposer la question.
-   - Aucun message au rechargement : on place un "pass" pour le prochain load. */
-
-let pendingContinue = null;
-let suppressNextIntercept = false;
-
-function showSavePopup(continueFn){
-  pendingContinue = continueFn;
-  $saveWrap.classList.remove('gs-hidden');
-}
-function hideSavePopup(){
-  $saveWrap.classList.add('gs-hidden');
-  pendingContinue = null;
-}
-
-/* Après "Quitter sans sauvegarder" OU "Sauvegarder", laisser passer UNE fois sans interception */
-$saveSkip.addEventListener('click', ()=>{
-  const fn = pendingContinue; hideSavePopup();
-  suppressNextIntercept = true;
-  // on supprime aussi tout message au prochain load
-  sessionStorage.setItem("gs_open_seen","1");
-  if(fn) fn();
-});
-$saveDo.addEventListener('click', async ()=>{
-  await saveToGist();
-  const fn = pendingContinue; hideSavePopup();
-  suppressNextIntercept = true;
-  // on supprime aussi tout message au prochain load
-  sessionStorage.setItem("gs_open_seen","1");
-  if(fn) fn();
-});
-
-/* Intercept F5 / Ctrl+R / Cmd+R */
-window.addEventListener('keydown', (e)=>{
-  const isF5 = e.key === "F5";
-  const isReload = (e.key.toLowerCase()==="r" && (e.ctrlKey || e.metaKey));
-  if(!(isF5 || isReload)) return;
-
-  if(suppressNextIntercept){ suppressNextIntercept = false; return; }
-  e.preventDefault();
-  showSavePopup(()=> location.reload());
-});
-
-/* Intercept clics sur liens */
-document.addEventListener('click', (e)=>{
-  const a = e.target.closest && e.target.closest('a[href]');
-  if(!a) return;
-  const href = a.getAttribute('href');
-  if(!href || href.startsWith('#')) return;
-
-  if(suppressNextIntercept){ suppressNextIntercept = false; return; }
-  e.preventDefault();
-  showSavePopup(()=> { window.location.href = href; });
-});
-
-/* Fermeture par la croix :
-   Les navigateurs n’autorisent qu’un prompt natif. Aucune UI custom n’est fiable ici.
-   On n’affiche donc PAS notre pop-up dans ce cas précis. */
 </script>
-<!-- ======== /GIST SYNC — POPUPS ======== -->
+<!-- ======= /GIST SYNC ======= -->
 
 	
 </body>
 </html>
+
 
 
 
