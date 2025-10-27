@@ -3303,137 +3303,163 @@ function exporterHTMLStatique() {
 
     </script>
 
-<!-- === GIST SYNC (simple) === -->
-<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;">
-  <button onclick="loadFromGist(false)">Charger (Gist)</button>
-  <button onclick="saveToGist(false)">Sauvegarder (Gist)</button>
+<!-- ======= GIST SYNC – UI + LOGIC (paste before </body>) ======= -->
+<style>
+  .gist-banner{position:fixed;top:0;left:0;right:0;background:#111;color:#fff;padding:10px 14px;display:flex;gap:10px;align-items:center;justify-content:space-between;z-index:9999;font:14px/1.3 system-ui,Arial;}
+  .gist-banner button,.gist-modal button,.gist-fab{cursor:pointer;border:0;border-radius:8px;padding:8px 12px;font:14px/1.2 system-ui;background:#4b8bf4;color:#fff}
+  .gist-banner .ghost{background:transparent;border:1px solid #fff;color:#fff}
+  .gist-hidden{display:none}
+  .gist-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:10000}
+  .gist-modal{background:#fff;color:#111;max-width:420px;width:90%;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:18px}
+  .gist-modal h3{margin:0 0 8px;font-size:18px}
+  .gist-modal p{margin:0 0 14px;font-size:14px}
+  .gist-row{display:flex;gap:8px;justify-content:flex-end}
+  .gist-fab{position:fixed;right:14px;bottom:14px;z-index:9999;background:#10b981}
+</style>
+
+<div id="gistBanner" class="gist-banner">
+  <div><strong>Gist :</strong> cliquer pour charger l’état partagé.</div>
+  <div>
+    <button id="btnLoadGist">Charger depuis Gist</button>
+    <button id="btnDismissBanner" class="ghost" title="Masquer cette barre">Masquer</button>
+  </div>
+</div>
+
+<button id="gistFab" class="gist-fab" title="Sauvegarder vers Gist">Sauvegarder maintenant</button>
+
+<div id="gistModalWrap" class="gist-hidden">
+  <div class="gist-modal-backdrop">
+    <div class="gist-modal">
+      <h3>Sauvegarder avant de continuer ?</h3>
+      <p>Tu t’apprêtes à actualiser ou quitter la page. Tu peux d’abord sauvegarder tes données vers Gist.</p>
+      <div class="gist-row">
+        <button id="btnContinueNoSave" class="ghost">Continuer sans sauvegarder</button>
+        <button id="btnSaveThenContinue">Sauvegarder vers Gist</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
-/* ---------- CONFIG ---------- */
-const GIST_ID = "5a019fa16da90e04e0feae696d352935"; // <-- ton ID de Gist
+/* ===== CONFIG ===== */
+const GIST_ID = "5a019fa16da90e04e0feae696d352935"; // ton Gist
 let GITHUB_TOKEN = localStorage.getItem("gh_token") || null;
 
-/* ---------- HELPERS ---------- */
-function askTokenIfNeeded({forAuto=false} = {}){
-  // En auto (ouverture/fermeture), on NE demande PAS de token (on skip si absent)
-  if(forAuto) return !!GITHUB_TOKEN;
-  if(!GITHUB_TOKEN){
-    const t = prompt("Colle ton token GitHub (scope: gist). Il sera mémorisé localement.");
-    if(t){ GITHUB_TOKEN = t; localStorage.setItem("gh_token", t); }
-  }
-  return !!GITHUB_TOKEN;
+/* ===== Helpers ===== */
+function askTokenIfNeeded({silent=false}={}){
+  if(GITHUB_TOKEN) return true;
+  if(silent) return false; // en mode auto on ne bloque pas par prompt
+  const t = prompt("Colle ton token GitHub (scope: gist). Il sera mémorisé localement.");
+  if(t){ GITHUB_TOKEN=t; localStorage.setItem("gh_token",t); return true; }
+  return false;
 }
-
 function dumpLocalStorage(){
-  const obj = {};
-  for(let i=0;i<localStorage.length;i++){
-    const k = localStorage.key(i);
-    obj[k] = localStorage.getItem(k);
-  }
-  return obj;
+  const o={}; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); o[k]=localStorage.getItem(k); } return o;
+}
+function restoreLocalStorage(d){
+  if(!d || typeof d!=="object") return;
+  localStorage.clear(); for(const [k,v] of Object.entries(d)){ localStorage.setItem(k,v); }
 }
 
-function restoreLocalStorage(dump){
-  if(!dump || typeof dump !== "object") return;
-  localStorage.clear();
-  for(const [k,v] of Object.entries(dump)){ localStorage.setItem(k, v); }
-}
-
-/* ---------- ACTIONS ---------- */
-async function saveToGist(silent=true){
-  if(!askTokenIfNeeded({forAuto: silent})) return false;
-
-  const body = {
-    files: {
-      "dashboard.json": {
-        content: JSON.stringify({
-          localStorageDump: dumpLocalStorage(),
-          exportedAt: new Date().toISOString()
-        }, null, 2)
-      }
-    }
-  };
-
+/* ===== API ===== */
+async function saveToGist({silent=false}={}){
+  if(!askTokenIfNeeded({silent})) return false;
+  const body={files:{"dashboard.json":{content:JSON.stringify({localStorageDump:dumpLocalStorage(),exportedAt:new Date().toISOString()},null,2)}}};
   try{
-    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-      method: "PATCH",
-      headers: {
-        "Authorization": `token ${GITHUB_TOKEN}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(body)
+    const res=await fetch(`https://api.github.com/gists/${GIST_ID}`,{
+      method:"PATCH",
+      headers:{ "Authorization":`token ${GITHUB_TOKEN}`,"Content-Type":"application/json"},
+      body:JSON.stringify(body)
     });
-    if(!res.ok) throw new Error("HTTP " + res.status);
+    if(!res.ok) throw new Error(res.status);
     if(!silent) alert("✅ Sauvegarde dans Gist réussie");
     return true;
-  }catch(e){
-    if(!silent) alert("❌ Erreur de sauvegarde");
-    return false;
-  }
+  }catch(e){ if(!silent) alert("❌ Erreur de sauvegarde"); return false; }
 }
 
-// Sauvegarde au moment de fermer (best effort, sans popup)
-function saveToGistKeepalive(){
+async function loadFromGist({silent=false, reloadAfter=true}={}){
+  if(!askTokenIfNeeded({silent})) return false;
   try{
-    if(!GITHUB_TOKEN) return; // pas de prompt quand on ferme
-    const body = JSON.stringify({
-      files:{ "dashboard.json": { content: JSON.stringify({ localStorageDump: dumpLocalStorage(), exportedAt: new Date().toISOString() }) } }
-    });
-    fetch(`https://api.github.com/gists/${GIST_ID}`, {
-      method: "PATCH",
-      headers: { "Authorization": `token ${GITHUB_TOKEN}`, "Content-Type": "application/json" },
-      body,
-      keepalive: true
-    });
-  }catch(e){ /* ignore */ }
-}
-
-async function loadFromGist(silent=true){
-  if(!askTokenIfNeeded({forAuto: silent})) return false;
-
-  try{
-    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-      headers: { "Authorization": `token ${GITHUB_TOKEN}` }
-    });
-    if(!res.ok) throw new Error("HTTP " + res.status);
-
-    const gist = await res.json();
-    const content = gist.files?.["dashboard.json"]?.content;
-    if(!content) throw new Error("Fichier dashboard.json introuvable");
-
-    const data = JSON.parse(content);
+    const res=await fetch(`https://api.github.com/gists/${GIST_ID}`,{ headers:{ "Authorization":`token ${GITHUB_TOKEN}` }});
+    if(!res.ok) throw new Error(res.status);
+    const gist=await res.json();
+    const content=gist.files?.["dashboard.json"]?.content;
+    if(!content) throw new Error("missing");
+    const data=JSON.parse(content);
     restoreLocalStorage(data.localStorageDump || {});
-
-    // Pour refléter l'état restauré : reload léger
-    if(!silent) alert("✅ Restauration réussie — la page va se recharger");
-    sessionStorage.setItem("just_loaded_from_gist", "1");
-    location.reload();
+    if(reloadAfter){
+      if(!silent) alert("✅ Chargé depuis Gist — la page va se recharger");
+      sessionStorage.setItem("just_loaded_from_gist","1");
+      location.reload();
+    }
     return true;
-  }catch(e){
-    if(!silent) alert("❌ Erreur de lecture du Gist");
-    return false;
-  }
+  }catch(e){ if(!silent) alert("❌ Erreur de lecture du Gist"); return false; }
 }
 
-/* ---------- AUTOMATISMES demandés (rien de plus) ---------- */
-// 1) À l'ouverture / refresh : charger automatiquement (une seule fois pour éviter boucle)
+/* ===== UI elements ===== */
+const $banner = document.getElementById("gistBanner");
+const $btnLoad = document.getElementById("btnLoadGist");
+const $btnDismiss = document.getElementById("btnDismissBanner");
+const $fab = document.getElementById("gistFab");
+const $modalWrap = document.getElementById("gistModalWrap");
+const $btnNoSave = document.getElementById("btnContinueNoSave");
+const $btnSaveThen = document.getElementById("btnSaveThenContinue");
+
+/* ===== Banner logic (on page open) ===== */
 window.addEventListener("load", () => {
-  const already = sessionStorage.getItem("just_loaded_from_gist") === "1";
-  if(!already){ loadFromGist(true); }
-  else { sessionStorage.removeItem("just_loaded_from_gist"); }
+  const already = sessionStorage.getItem("just_loaded_from_gist")==="1";
+  if(already){ sessionStorage.removeItem("just_loaded_from_gist"); $banner.classList.add("gist-hidden"); }
+  else { $banner.classList.remove("gist-hidden"); }
+});
+$btnLoad.addEventListener("click", async ()=>{ await loadFromGist({silent:false,reloadAfter:true}); });
+$btnDismiss.addEventListener("click", ()=> $banner.classList.add("gist-hidden"));
+$fabricShownOnce=false;
+
+/* ===== Always-available manual save button (bottom-right) ===== */
+$fab.addEventListener("click", ()=> saveToGist({silent:false}));
+
+/* ===== Refresh / navigation interception to show SAVE modal ===== */
+let pendingAction = null;
+function showSaveModal(continueCb){
+  pendingAction = continueCb;
+  $modalWrap.classList.remove("gist-hidden");
+}
+function hideSaveModal(){ $modalWrap.classList.add("gist-hidden"); pendingAction=null; }
+$btnNoSave.addEventListener("click", ()=>{ const cb=pendingAction; hideSaveModal(); cb && cb(); });
+$btnSaveThen.addEventListener("click", async ()=>{
+  await saveToGist({silent:false});
+  const cb=pendingAction; hideSaveModal(); cb && cb();
 });
 
-// 2) À la fermeture : sauvegarder automatiquement (best effort)
-window.addEventListener("beforeunload", () => {
-  saveToGistKeepalive();
+/* Intercept F5 and Ctrl+R to propose saving first */
+window.addEventListener("keydown", (e)=>{
+  const isF5 = e.key === "F5";
+  const isCtrlR = (e.key.toLowerCase()==="r" && (e.ctrlKey || e.metaKey));
+  if(isF5 || isCtrlR){
+    e.preventDefault();
+    showSaveModal(()=> location.reload());
+  }
 });
+
+/* Intercept clicks on links (<a>) to propose saving first */
+document.addEventListener("click", (e)=>{
+  const a = e.target.closest && e.target.closest("a[href]");
+  if(!a) return;
+  const href = a.getAttribute("href");
+  if(!href || href.startsWith("#")) return; // laisses les ancres
+  e.preventDefault();
+  showSaveModal(()=> { window.location.href = href; });
+});
+
+/* Note: fermeture de l’onglet (croix) ne permet pas d’afficher une UI personnalisée.
+   Le bouton vert “Sauvegarder maintenant” est toujours disponible pour sauvegarder avant de quitter. */
 </script>
-<!-- === /GIST SYNC === -->
+<!-- ======= /GIST SYNC ======= -->
 
 	
 </body>
 </html>
+
 
 
 
