@@ -3412,14 +3412,18 @@ const $saveWrap = document.getElementById('gsSaveWrap');
 const $saveDo   = document.getElementById('gsSaveDo');
 const $saveSkip = document.getElementById('gsSaveSkip');
 
-/* --- CHARGER au démarrage / après refresh : affiche un POPUP avec bouton --- */
+/* --- CHARGER au démarrage / après refresh : pop-up bouton --- */
 window.addEventListener('load', () => {
+  // Nettoyer tout résidu au retour
+  $saveWrap.classList.add('gs-hidden');
+  pendingContinue = null;
+
   const justLoaded = sessionStorage.getItem("just_loaded_from_gist")==="1";
   if(justLoaded){
     sessionStorage.removeItem("just_loaded_from_gist");
     $loadWrap.classList.add('gs-hidden');  // ne rien montrer juste après un chargement
   }else{
-    $loadWrap.classList.remove('gs-hidden'); // montrer le popup "Charger"
+    $loadWrap.classList.remove('gs-hidden'); // montrer le pop-up "Charger"
   }
 });
 $loadDo.addEventListener('click', async () => {
@@ -3430,44 +3434,15 @@ $loadSkip.addEventListener('click', () => {
   $loadWrap.classList.add('gs-hidden');
 });
 
-/* --- QUITTER/RAFRAÎCHIR : affiche un POPUP avec bouton SAUVEGARDER --- */
-/* Intercepte F5 / Ctrl+R / Cmd+R */
-window.addEventListener('keydown', (e)=>{
-  const isF5 = e.key === "F5";
-  const isReload = (e.key.toLowerCase()==="r" && (e.ctrlKey || e.metaKey));
-  if(isF5 || isReload){
-    e.preventDefault();
-    showSavePopup(()=>location.reload());
-  }
-});
+/* --- QUITTER/RAFRAÎCHIR : pop-up SAUVEGARDER (sans beforeunload) --- */
+/* Objectif:
+   - Afficher le pop-up "Sauvegarder" quand on fait F5/Ctrl+R/Cmd+R ou clique un lien.
+   - Après avoir cliqué "Sauvegarder vers Gist", laisser partir SANS reposer la question.
+   - Quand on revient sur la page, afficher le pop-up "Charger" (pas "Sauvegarder"). */
 
-/* Intercepte les clics <a href> pour navigation */
-document.addEventListener('click', (e)=>{
-  const a = e.target.closest && e.target.closest('a[href]');
-  if(!a) return;
-  const href = a.getAttribute('href');
-  if(!href || href.startsWith('#')) return;
-  e.preventDefault();
-  showSavePopup(()=>{ window.location.href = href; });
-});
-
-/* Tentative de fermeture via la croix de l’onglet :
-   On déclenche le prompt natif; si l’utilisateur choisit "Rester", on montre ensuite notre popup bouton. */
-let exitPromptArmed = false;
-window.addEventListener('beforeunload', (e)=>{
-  // On n'empêche pas toujours; on arme juste une vérif post-dialogue :
-  if(!exitPromptArmed){
-    exitPromptArmed = true;
-    // petite fenêtre : si l'utilisateur choisit "Rester", la page reste visible → on affiche notre popup
-    setTimeout(()=>{ if(document.visibilityState === 'visible'){ showSavePopup(()=>window.close()); } exitPromptArmed=false; }, 0);
-    // Pour faire apparaître le prompt natif :
-    e.preventDefault();
-    e.returnValue = '';
-  }
-});
-
-/* --- Logique du popup "Sauvegarder avant de quitter" --- */
 let pendingContinue = null;
+let suppressNextIntercept = false;
+
 function showSavePopup(continueFn){
   pendingContinue = continueFn;
   $saveWrap.classList.remove('gs-hidden');
@@ -3476,19 +3451,53 @@ function hideSavePopup(){
   $saveWrap.classList.add('gs-hidden');
   pendingContinue = null;
 }
+
+/* Après sauvegarde OU "Quitter sans sauvegarder", laisser passer UNE fois sans ré-interception */
 $saveSkip.addEventListener('click', ()=>{
-  const fn = pendingContinue; hideSavePopup(); if(fn) fn();
+  const fn = pendingContinue; hideSavePopup();
+  suppressNextIntercept = true;
+  if(fn) fn();
 });
 $saveDo.addEventListener('click', async ()=>{
-  const ok = await saveToGist();
-  const fn = pendingContinue; hideSavePopup(); if(fn) fn();
+  await saveToGist();
+  const fn = pendingContinue; hideSavePopup();
+  suppressNextIntercept = true;  // on vient de sauvegarder → laisser partir
+  if(fn) fn();
 });
+
+/* Intercept F5 / Ctrl+R / Cmd+R pour proposer la sauvegarde AVANT */
+window.addEventListener('keydown', (e)=>{
+  const isF5 = e.key === "F5";
+  const isReload = (e.key.toLowerCase()==="r" && (e.ctrlKey || e.metaKey));
+  if(!(isF5 || isReload)) return;
+
+  if(suppressNextIntercept){ suppressNextIntercept = false; return; }
+  e.preventDefault();
+  showSavePopup(()=> location.reload());
+});
+
+/* Intercept clics sur liens pour proposer la sauvegarde AVANT */
+document.addEventListener('click', (e)=>{
+  const a = e.target.closest && e.target.closest('a[href]');
+  if(!a) return;
+  const href = a.getAttribute('href');
+  if(!href || href.startsWith('#')) return;
+
+  if(suppressNextIntercept){ suppressNextIntercept = false; return; }
+  e.preventDefault();
+  showSavePopup(()=> { window.location.href = href; });
+});
+
+/* NOTE importante :
+   - La fermeture par la croix de l’onglet **n’autorise pas** d’UI personnalisée au dernier moment.
+   - Ici on n’utilise plus 'beforeunload' → en revenant sur la page, tu verras bien le pop-up "Charger". */
 </script>
 <!-- ======== /GIST SYNC — POPUPS ======== -->
 
 	
 </body>
 </html>
+
 
 
 
