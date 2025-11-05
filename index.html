@@ -1029,7 +1029,7 @@
 
         // FONCTIONS D'EXPORT
         function exporterResponsables() {
-            console.log('Export des chefs d'opérations...');
+            console.log('Export des chefs d\'opérations...');
             try {
                 if (!responsablesData || responsablesData.length === 0) {
                     alert('Aucun responsable à exporter.');
@@ -1050,10 +1050,10 @@
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, "Responsables");
                 XLSX.writeFile(wb, "responsables_export.xlsx");
-                alert(`${responsablesData.length} chefs d'opérations exportés avec succès !`);
+                alert(`${responsablesData.length} chefs d opérations exportés avec succès !`);
             } catch (error) {
-                console.error('Erreur export chefs d'opérations:', error);
-                alert('Erreur lors de l\'export des chefs d'opérations: ' + error.message);
+                console.error('Erreur export chefs d\'opérations:', error);
+                alert('Erreur lors de l\'export des chefs d\'opérations: ' + error.message);
             }
         }
 
@@ -1214,7 +1214,7 @@ function importerHTML() {
                 const summary = `
 📊 DONNÉES À IMPORTER :
 
-👥 Chefs d'opérations: ${importedData.responsables.length}
+👥 Chefs d\'opérations: ${importedData.responsables.length}
 👤 Accountables: ${importedData.accountables.length}  
 ✅ Tâches: ${Object.values(importedData.tasks).flat().length}
 📋 Projets: ${Object.values(importedData.projets).flat().length}
@@ -1258,7 +1258,7 @@ Confirmer l'import ?`;
 
         function reinitialiserDonnees() {
             console.log('Réinitialisation des données...');
-            if (confirm('Êtes-vous ABSOLUMENT sûr de vouloir réinitialiser TOUTES les données ?\n\nCette action supprimera définitivement tous les chefs d'opérations, accountables, tâches et projets.\n\nCette action est IRREVERSIBLE !')) {
+            if (confirm('Êtes-vous ABSOLUMENT sûr de vouloir réinitialiser TOUTES les données ?\n\nCette action supprimera définitivement tous les chefs d\'opérations, accountables, tâches et projets.\n\nCette action est IRREVERSIBLE !')) {
                 try {
                     // Vérifier que localStorage est accessible
                     if (typeof(Storage) === "undefined") {
@@ -1975,7 +1975,7 @@ Confirmer l'import ?`;
                     }
                     
                     if (newResponsables.length === 0) {
-                        alert('Aucun chef d'opération valide trouvé dans le fichier');
+                        alert("Aucun chef d'opération valide trouvé dans le fichier");
                         return;
                     }
                     
@@ -2184,7 +2184,7 @@ function importerTaches() {
             }
             
             if (importedCount === 0 && updatedCount === 0) {
-                alert('Aucune tâche valide importée. Vérifiez que les chefs d'opérations et accountables existent.');
+                alert('Aucune tâche valide importée. Vérifiez que les chefs d\'opérations et accountables existent.');
                 return;
             }
             
@@ -2327,7 +2327,7 @@ function trouverTacheParId(taskId) {
                     }
                     
                     if (importedCount === 0) {
-                        alert('Aucun projet valide importé. Vérifiez que les chefs d'opérations et accountables existent.');
+                        alert('Aucun projet valide importé. Vérifiez que les chefs d\'opérations et accountables existent.');
                         return;
                     }
                     
@@ -3439,6 +3439,7 @@ window.addEventListener("load", async () => {
 	
 </body>
 </html>
+
 
 
 
