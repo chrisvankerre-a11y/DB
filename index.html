@@ -698,7 +698,7 @@
             </div>
             <ul class="menu">
                 <li class="menu-item active" data-target="accueil">Accueil</li>
-                <li class="menu-item" data-target="responsables">Liste des responsables</li>
+                <li class="menu-item" data-target="responsables">Liste des chefs d'opérations</li>
                 <li class="menu-item" data-target="accountables">Liste des accountables</li>
                 <li class="menu-item" data-target="toutes-taches">Toutes les tâches</li>
                 <li class="menu-item" data-target="projets">Liste des projets</li>
@@ -711,7 +711,7 @@
             <div id="accueil" class="content-section">
                 <div class="welcome-section">
                     <h1>Dashboard Direction Générale</h1>
-                    <p>Gérez vos responsables, accountables, tâches et projets en toute simplicité</p>
+                    <p>Gérez vos chefs d'opérations, accountables, tâches et projets en toute simplicité</p>
                 </div>
 
                 <div class="actions-grid">
@@ -720,7 +720,7 @@
                         <h3>📥 Importer des données</h3>
                         <p>Importez vos données depuis des fichiers Excel</p>
                         <div class="buttons">
-                            <button class="btn btn-success" id="importResponsablesHome">Importer responsables</button>
+                            <button class="btn btn-success" id="importResponsablesHome">Importer chefs d'opérations</button>
                             <button class="btn btn-success" id="importAccountablesHome">Importer accountables</button>
                             <button class="btn btn-success" id="importTachesHome">Importer tâches</button>
                             <button class="btn btn-success" id="importProjetsHome">Importer projets</button>
@@ -732,7 +732,7 @@
                         <h3>📤 Exporter des données</h3>
                         <p>Exportez vos données vers Excel pour sauvegarde ou partage</p>
                         <div class="buttons">
-                            <button class="btn btn-primary" id="exportResponsablesHome">Exporter responsables</button>
+                            <button class="btn btn-primary" id="exportResponsablesHome">Exporter chefs d'opérations</button>
                             <button class="btn btn-accountable" id="exportAccountablesHome">Exporter accountables</button>
                             <button class="btn btn-primary" id="exportTachesHome">Exporter tâches</button>
                             <button class="btn btn-project" id="exportProjetsHome">Exporter projets</button>
@@ -762,7 +762,7 @@
 
                 <!-- Zones d'import cachées -->
                 <div class="file-import" style="display: none; margin-top: 30px;" id="responsablesImportArea">
-                    <h3>Importer les responsables</h3>
+                    <h3>Importer les chefs d'opérations</h3>
                     <p>Format attendu : Colonnes [ID, Nom, Rôle]</p>
                     <input type="file" id="responsablesExcelFile" accept=".xlsx, .xls">
                     <div class="import-actions">
@@ -812,13 +812,13 @@
             <!-- Responsables Section -->
             <div id="responsables" class="content-section" style="display: none;">
                 <div class="header">
-                    <h2>Liste des responsables</h2>
+                    <h2>Liste des chefs d'opérations</h2>
                     <button class="btn btn-primary" id="exportResponsables">Exporter</button>
                 </div>
                 
                 <div class="card">
                     <div class="responsables-list" id="responsablesContainer">
-                        <!-- Les responsables seront chargés ici dynamiquement -->
+                        <!-- Les chefs d'opérations seront chargés ici dynamiquement -->
                     </div>
                 </div>
             </div>
@@ -1029,10 +1029,10 @@
 
         // FONCTIONS D'EXPORT
         function exporterResponsables() {
-            console.log('Export des responsables...');
+            console.log('Export des chefs d'opérations...');
             try {
                 if (!responsablesData || responsablesData.length === 0) {
-                    alert('Aucun responsable à exporter.');
+                    alert('Aucun chef d'opérations à exporter.');
                     return;
                 }
 
@@ -1050,10 +1050,10 @@
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, "Responsables");
                 XLSX.writeFile(wb, "responsables_export.xlsx");
-                alert(`${responsablesData.length} responsables exportés avec succès !`);
+                alert(`${responsablesData.length} chefs d'opérations exportés avec succès !`);
             } catch (error) {
-                console.error('Erreur export responsables:', error);
-                alert('Erreur lors de l\'export des responsables: ' + error.message);
+                console.error('Erreur export chefs d'opérations:', error);
+                alert('Erreur lors de l\'export des chefs d'opérations: ' + error.message);
             }
         }
 
@@ -1214,7 +1214,7 @@ function importerHTML() {
                 const summary = `
 📊 DONNÉES À IMPORTER :
 
-👥 Responsables: ${importedData.responsables.length}
+👥 Chefs d'opérations: ${importedData.responsables.length}
 👤 Accountables: ${importedData.accountables.length}  
 ✅ Tâches: ${Object.values(importedData.tasks).flat().length}
 📋 Projets: ${Object.values(importedData.projets).flat().length}
@@ -1258,7 +1258,7 @@ Confirmer l'import ?`;
 
         function reinitialiserDonnees() {
             console.log('Réinitialisation des données...');
-            if (confirm('Êtes-vous ABSOLUMENT sûr de vouloir réinitialiser TOUTES les données ?\n\nCette action supprimera définitivement tous les responsables, accountables, tâches et projets.\n\nCette action est IRREVERSIBLE !')) {
+            if (confirm('Êtes-vous ABSOLUMENT sûr de vouloir réinitialiser TOUTES les données ?\n\nCette action supprimera définitivement tous les chefs d'opérations, accountables, tâches et projets.\n\nCette action est IRREVERSIBLE !')) {
                 try {
                     // Vérifier que localStorage est accessible
                     if (typeof(Storage) === "undefined") {
@@ -1308,7 +1308,7 @@ Confirmer l'import ?`;
             container.innerHTML = '';
             
             if (responsablesData.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Aucun responsable trouvé.</p>';
+                container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Aucun chef d'opérations trouvé.</p>';
                 return;
             }
             
@@ -1412,7 +1412,7 @@ Confirmer l'import ?`;
         function afficherTachesResponsable(responsableId, responsableName) {
             const container = document.getElementById('allTasksContainer');
             const titre = document.getElementById('tachesTitle');
-            titre.textContent = `Tâches du responsable: ${responsableName}`;
+            titre.textContent = `Tâches du chef d'opérations: ${responsableName}`;
             container.innerHTML = '';
             
             const taches = tasksData[responsableId] || [];
@@ -1488,7 +1488,7 @@ Confirmer l'import ?`;
         function afficherProjetsResponsable(responsableId, responsableName) {
             const container = document.getElementById('projetsContainer');
             const titre = document.getElementById('projetsTitle');
-            titre.textContent = `Projets du responsable: ${responsableName}`;
+            titre.textContent = `Projets du chef d'opérations: ${responsableName}`;
             container.innerHTML = '';
             
             const projets = projetsData[responsableId] || [];
@@ -1581,7 +1581,7 @@ Confirmer l'import ?`;
                     showSection('taskDetails');
                 });
                 
-                // Clic sur le responsable -> afficher ses tâches
+                // Clic sur le chef d'opérations -> afficher ses tâches
                 const responsableLink = taskItem.querySelector('.responsable-link');
                 responsableLink.addEventListener('click', function(e) {
                     e.stopPropagation();
@@ -1647,7 +1647,7 @@ Confirmer l'import ?`;
                     afficherDetailsProjet(projet);
                 });
                 
-                // Clic sur le responsable -> afficher ses projets
+                // Clic sur le chef d'opérations -> afficher ses projets
                 const responsableLink = projetItem.querySelector('.responsable-link');
                 responsableLink.addEventListener('click', function(e) {
                     e.stopPropagation();
@@ -1975,7 +1975,7 @@ Confirmer l'import ?`;
                     }
                     
                     if (newResponsables.length === 0) {
-                        alert('Aucun responsable valide trouvé dans le fichier');
+                        alert('Aucun chef d'opération valide trouvé dans le fichier');
                         return;
                     }
                     
@@ -2184,7 +2184,7 @@ function importerTaches() {
             }
             
             if (importedCount === 0 && updatedCount === 0) {
-                alert('Aucune tâche valide importée. Vérifiez que les responsables et accountables existent.');
+                alert('Aucune tâche valide importée. Vérifiez que les chefs d'opérations et accountables existent.');
                 return;
             }
             
@@ -2327,7 +2327,7 @@ function trouverTacheParId(taskId) {
                     }
                     
                     if (importedCount === 0) {
-                        alert('Aucun projet valide importé. Vérifiez que les responsables et accountables existent.');
+                        alert('Aucun projet valide importé. Vérifiez que les chefs d'opérations et accountables existent.');
                         return;
                     }
                     
@@ -2846,7 +2846,7 @@ function makeEditable(element) {
                         </div>
                         
                         <div class="detail-item">
-                            <div class="detail-label">Responsable</div>
+                            <div class="detail-label">Chef d'opérations</div>
                             <div class="detail-value">${responsable ? responsable.name : 'Non assigné'}</div>
                         </div>
                         
@@ -3181,7 +3181,7 @@ function exporterHTMLStatique() {
         <h2>📈 Résumé des données</h2>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
             <div class="card">
-                <h3>👥 Responsables</h3>
+                <h3>👥 Chefs d'opérations</h3>
                 <p style="font-size: 2em; margin: 10px 0; color: #2c3e50;">${responsablesData.length}</p>
             </div>
             <div class="card">
@@ -3201,9 +3201,9 @@ function exporterHTMLStatique() {
 
     <!-- Section Responsables -->
     <div class="section">
-        <h2>👥 Liste des Responsables</h2>
+        <h2>👥 Liste des Chefs d'opérations</h2>
         ${responsablesData.length === 0 ? 
-            '<p style="text-align: center; color: #7f8c8d; padding: 20px;">Aucun responsable</p>' :
+            '<p style="text-align: center; color: #7f8c8d; padding: 20px;">Aucun chef d'opérations</p>' :
             responsablesData.map(resp => `
                 <div class="card">
                     <strong>${resp.name}</strong>
@@ -3439,6 +3439,7 @@ window.addEventListener("load", async () => {
 	
 </body>
 </html>
+
 
 
 
