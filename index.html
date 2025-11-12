@@ -1032,7 +1032,7 @@
             console.log('Export des chefs d\'opérations...');
             try {
                 if (!responsablesData || responsablesData.length === 0) {
-                    alert('Aucun responsable à exporter.');
+                    alert('Aucun chef d\'opération à exporter.');
                     return;
                 }
 
@@ -1048,7 +1048,7 @@
                 
                 const ws = XLSX.utils.aoa_to_sheet(data);
                 const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "Responsables");
+                XLSX.utils.book_append_sheet(wb, ws, "Chefs d\'opérations");
                 XLSX.writeFile(wb, "responsables_export.xlsx");
                 alert(`${responsablesData.length} chefs d opérations exportés avec succès !`);
             } catch (error) {
@@ -1308,7 +1308,7 @@ Confirmer l'import ?`;
             container.innerHTML = '';
             
             if (responsablesData.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Aucun responsable trouvé.</p>';
+                container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Aucun chef d\'opération trouvé.</p>';
                 return;
             }
             
@@ -1412,7 +1412,7 @@ Confirmer l'import ?`;
         function afficherTachesResponsable(responsableId, responsableName) {
             const container = document.getElementById('allTasksContainer');
             const titre = document.getElementById('tachesTitle');
-            titre.textContent = `Tâches du responsable: ${responsableName}`;
+            titre.textContent = `Tâches du chef d\'opérations: ${responsableName}`;
             container.innerHTML = '';
             
             const taches = tasksData[responsableId] || [];
@@ -1488,7 +1488,7 @@ Confirmer l'import ?`;
         function afficherProjetsResponsable(responsableId, responsableName) {
             const container = document.getElementById('projetsContainer');
             const titre = document.getElementById('projetsTitle');
-            titre.textContent = `Projets du responsable: ${responsableName}`;
+            titre.textContent = `Projets du chef d\'opérations: ${responsableName}`;
             container.innerHTML = '';
             
             const projets = projetsData[responsableId] || [];
@@ -1581,7 +1581,7 @@ Confirmer l'import ?`;
                     showSection('taskDetails');
                 });
                 
-                // Clic sur le responsable -> afficher ses tâches
+                // Clic sur le chef d\'opérations -> afficher ses tâches
                 const responsableLink = taskItem.querySelector('.responsable-link');
                 responsableLink.addEventListener('click', function(e) {
                     e.stopPropagation();
@@ -2592,7 +2592,7 @@ container.innerHTML = `
     <div class="detail-section">
         <h3>Assignation</h3>
         <div class="detail-item">
-            <div class="detail-label">Responsable</div>
+            <div class="detail-label">Chef d\'opérations</div>
             <div class="detail-value">${responsable ? responsable.name : 'Non assigné'}</div>
         </div>
         <div class="detail-item">
@@ -2846,7 +2846,7 @@ function makeEditable(element) {
                         </div>
                         
                         <div class="detail-item">
-                            <div class="detail-label">Responsable</div>
+                            <div class="detail-label">Chef d\'opérations</div>
                             <div class="detail-value">${responsable ? responsable.name : 'Non assigné'}</div>
                         </div>
                         
@@ -3203,7 +3203,7 @@ function exporterHTMLStatique() {
     <div class="section">
         <h2>👥 Liste des Chefs d'opérations</h2>
         ${responsablesData.length === 0 ? 
-            '<p style="text-align: center; color: #7f8c8d; padding: 20px;">Aucun responsable</p>' :
+            '<p style="text-align: center; color: #7f8c8d; padding: 20px;">Aucun chef d\'opérations</p>' :
             responsablesData.map(resp => `
                 <div class="card">
                     <strong>${resp.name}</strong>
@@ -3439,6 +3439,7 @@ window.addEventListener("load", async () => {
 	
 </body>
 </html>
+
 
 
 
