@@ -896,6 +896,20 @@
     </div>
 
     <script>
+
+
+// Token utilisé uniquement pour la sauvegarde
+let GITHUB_TOKEN = localStorage.getItem("gh_token") || null;
+
+function askTokenIfNeeded() {
+  if (GITHUB_TOKEN) return true;
+  const t = prompt("Colle ton token GitHub (scope: gist)");
+  if (!t) return false;
+  GITHUB_TOKEN = t.trim();
+  localStorage.setItem("gh_token", GITHUB_TOKEN);
+  return true;
+}
+
         // Données
         let responsablesData = [];
         let accountablesData = [];
@@ -1032,7 +1046,7 @@
             console.log('Export des chefs d\'opérations...');
             try {
                 if (!responsablesData || responsablesData.length === 0) {
-                    alert('Aucun chef d\'opération à exporter.');
+                    alert('Aucun responsable à exporter.');
                     return;
                 }
 
@@ -1048,7 +1062,7 @@
                 
                 const ws = XLSX.utils.aoa_to_sheet(data);
                 const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "Chefs d\'opérations");
+                XLSX.utils.book_append_sheet(wb, ws, "Responsables");
                 XLSX.writeFile(wb, "responsables_export.xlsx");
                 alert(`${responsablesData.length} chefs d opérations exportés avec succès !`);
             } catch (error) {
@@ -1308,7 +1322,7 @@ Confirmer l'import ?`;
             container.innerHTML = '';
             
             if (responsablesData.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Aucun chef d\'opération trouvé.</p>';
+                container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Aucun responsable trouvé.</p>';
                 return;
             }
             
@@ -1412,7 +1426,7 @@ Confirmer l'import ?`;
         function afficherTachesResponsable(responsableId, responsableName) {
             const container = document.getElementById('allTasksContainer');
             const titre = document.getElementById('tachesTitle');
-            titre.textContent = `Tâches du chef d\'opérations: ${responsableName}`;
+            titre.textContent = `Tâches du responsable: ${responsableName}`;
             container.innerHTML = '';
             
             const taches = tasksData[responsableId] || [];
@@ -1488,7 +1502,7 @@ Confirmer l'import ?`;
         function afficherProjetsResponsable(responsableId, responsableName) {
             const container = document.getElementById('projetsContainer');
             const titre = document.getElementById('projetsTitle');
-            titre.textContent = `Projets du chef d\'opérations: ${responsableName}`;
+            titre.textContent = `Projets du responsable: ${responsableName}`;
             container.innerHTML = '';
             
             const projets = projetsData[responsableId] || [];
@@ -1581,7 +1595,7 @@ Confirmer l'import ?`;
                     showSection('taskDetails');
                 });
                 
-                // Clic sur le chef d\'opérations -> afficher ses tâches
+                // Clic sur le responsable -> afficher ses tâches
                 const responsableLink = taskItem.querySelector('.responsable-link');
                 responsableLink.addEventListener('click', function(e) {
                     e.stopPropagation();
@@ -2592,7 +2606,7 @@ container.innerHTML = `
     <div class="detail-section">
         <h3>Assignation</h3>
         <div class="detail-item">
-            <div class="detail-label">Chef d\'opérations</div>
+            <div class="detail-label">Responsable</div>
             <div class="detail-value">${responsable ? responsable.name : 'Non assigné'}</div>
         </div>
         <div class="detail-item">
@@ -2846,7 +2860,7 @@ function makeEditable(element) {
                         </div>
                         
                         <div class="detail-item">
-                            <div class="detail-label">Chef d\'opérations</div>
+                            <div class="detail-label">Responsable</div>
                             <div class="detail-value">${responsable ? responsable.name : 'Non assigné'}</div>
                         </div>
                         
@@ -3203,7 +3217,7 @@ function exporterHTMLStatique() {
     <div class="section">
         <h2>👥 Liste des Chefs d'opérations</h2>
         ${responsablesData.length === 0 ? 
-            '<p style="text-align: center; color: #7f8c8d; padding: 20px;">Aucun chef d\'opérations</p>' :
+            '<p style="text-align: center; color: #7f8c8d; padding: 20px;">Aucun responsable</p>' :
             responsablesData.map(resp => `
                 <div class="card">
                     <strong>${resp.name}</strong>
@@ -3319,17 +3333,10 @@ function exporterHTMLStatique() {
 
 <script>
 /******** CONFIG ********/
-const GIST_ID = "5a019fa16da90e04e0feae696d352935"; // ton Gist ID
-let GITHUB_TOKEN = localStorage.getItem("gh_token") || null;
+const GIST_ID = "a9e4682d96bed0eacb1f73b6e15174ee"; // ton Gist ID
 
 /******** HELPERS ********/
-function askTokenIfNeeded({silent=false}={}) {
-  if (GITHUB_TOKEN) return true;
-  if (silent) return false;
-  const t = prompt("Colle ton token GitHub (scope: gist). Il sera mémorisé localement.");
-  if (t) { GITHUB_TOKEN = t; localStorage.setItem("gh_token", t); return true; }
-  return false;
-}
+
 function dumpLocalStorage() {
   const o = {}; for (let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); o[k]=localStorage.getItem(k); }
   return o;
@@ -3343,7 +3350,9 @@ function getKnownVersion(){ return localStorage.getItem('gist_last_version') || 
 
 /******** API ********/
 async function saveToGist() {
-  if (!askTokenIfNeeded()) return false;
+  
+if (!askTokenIfNeeded()) return false;
+
   try {
     const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
       method: "PATCH",
@@ -3355,24 +3364,21 @@ async function saveToGist() {
     setKnownVersion(j?.history?.[0]?.version || "");
     alert("✅ Sauvegarde dans Gist réussie");
     return true;
-  } catch(e) {
-    alert("❌ Erreur de sauvegarde");
-    return false;
-  }
+} catch (e) {
+  alert("❌ Erreur de sauvegarde : " + (e && e.message ? e.message : e));
+  return false;
+}
 }
 
 async function loadFromGist() {
-  if (!askTokenIfNeeded()) return false;
   try {
-    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-      headers: { "Authorization": `token ${GITHUB_TOKEN}` }
-    });
-    if (!res.ok) throw new Error("HTTP "+res.status);
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+
     const gist = await res.json();
     const content = gist.files?.["dashboard.json"]?.content;
     if (!content) throw new Error("missing");
 
-    // mémoriser la version lue AVANT le reload pour éviter toute boucle
     const remoteVersion = gist?.history?.[0]?.version || "";
     setKnownVersion(remoteVersion);
 
@@ -3382,8 +3388,9 @@ async function loadFromGist() {
     sessionStorage.setItem("gs_just_loaded_from_gist", "1");
     location.reload();
     return true;
-  } catch(e) {
-    alert("❌ Erreur de lecture du Gist");
+
+  } catch (e) {
+    alert("❌ Erreur de lecture du Gist : " + (e && e.message ? e.message : e));
     return false;
   }
 }
@@ -3439,23 +3446,6 @@ window.addEventListener("load", async () => {
 	
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
