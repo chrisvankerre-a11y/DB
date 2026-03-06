@@ -103,6 +103,35 @@
             padding: 20px;
             margin-bottom: 20px;
         }
+
+
+        .status-banner {
+            margin-top: 20px;
+            padding: 12px 14px;
+            border-radius: 8px;
+            background: #eef6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e3a8a;
+            font-size: 0.95rem;
+        }
+
+        .quick-flow {
+            text-align: left;
+        }
+
+        .quick-flow ol {
+            padding-left: 20px;
+            margin: 10px 0 0;
+            display: grid;
+            gap: 10px;
+        }
+
+        .step-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
         
         /* Page d'accueil */
         .welcome-section {
@@ -750,6 +779,33 @@
   			</div>
                     </div>
 
+                    <div class="action-card quick-flow">
+                        <h3>🚀 Parcours rapide</h3>
+                        <p>Suivez ces 3 étapes pour utiliser le dashboard sans vous perdre.</p>
+                        <ol>
+                            <li>
+                                <strong>Importer les données</strong>
+                                <div class="step-actions">
+                                    <button class="btn btn-success" id="startImportFlow">Commencer l'import</button>
+                                </div>
+                            </li>
+                            <li>
+                                <strong>Consulter et modifier</strong>
+                                <div class="step-actions">
+                                    <button class="btn btn-primary" id="goToTasksFlow">Voir les tâches</button>
+                                    <button class="btn btn-project" id="goToProjectsFlow">Voir les projets</button>
+                                </div>
+                            </li>
+                            <li>
+                                <strong>Sauvegarder avant de fermer</strong>
+                                <div class="step-actions">
+                                    <button class="btn btn-secondary" id="saveToGistFlow">Sauvegarder sur Gist</button>
+                                    <button class="btn btn-secondary" id="exportAllFlow">Exporter HTML</button>
+                                </div>
+                            </li>
+                        </ol>
+                    </div>
+
                     <!-- Administration Section -->
                     <div class="action-card danger">
                         <h3>⚙️ Administration</h3>
@@ -805,6 +861,8 @@
   <span style="font-size:20px;">⚠️</span>
   <span>Après modification : <strong>sauvegardez vos données (en bas à gauche)</strong> puis fermez la page.</span>
 </div>
+
+                <div class="status-banner" id="saveStatus">Dernière sauvegarde : pas encore sauvegardé.</div>
 
 			
 			</div>
@@ -920,6 +978,22 @@ function askTokenIfNeeded() {
         let currentAccountableId = null;
         let currentTaskId = null;
         let previousSection = 'accueil';
+        let saveState = { lastSavedAt: null, lastAction: 'Aucune sauvegarde effectuée' };
+
+        function updateSaveStatus(actionLabel = saveState.lastAction) {
+            saveState.lastAction = actionLabel;
+            const saveStatus = document.getElementById('saveStatus');
+            if (!saveStatus) return;
+            const when = saveState.lastSavedAt
+                ? new Date(saveState.lastSavedAt).toLocaleString('fr-FR')
+                : 'pas encore sauvegardé';
+            saveStatus.textContent = `Dernière sauvegarde : ${when} (${saveState.lastAction}).`;
+        }
+
+        function markSaved(actionLabel) {
+            saveState.lastSavedAt = Date.now();
+            updateSaveStatus(actionLabel);
+        }
 
         // Navigation
         document.addEventListener('DOMContentLoaded', function() {
@@ -928,6 +1002,7 @@ function askTokenIfNeeded() {
             initialiserNavigation();
             initialiserEvenements();
             repairExistingData();
+            updateSaveStatus();
             console.log('Dashboard initialisé avec succès');
         });
 
@@ -937,8 +1012,6 @@ function askTokenIfNeeded() {
                     const target = this.getAttribute('data-target');
                     console.log('Navigation vers:', target);
                     
-                    document.getElementById('exportStaticHTML').addEventListener('click', exporterHTMLStatique);
-
       		    document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
                     this.classList.add('active');
                     
@@ -999,6 +1072,23 @@ function askTokenIfNeeded() {
             // EXPORT HTML FONCTIONNEL
             document.getElementById('exportHTMLWithData').addEventListener('click', exporterHTML);
             document.getElementById('importHTMLData').addEventListener('click', importerHTML);
+            document.getElementById('exportStaticHTML').addEventListener('click', exporterHTMLStatique);
+
+            // Parcours rapide
+            document.getElementById('startImportFlow').addEventListener('click', function() {
+                showSection('accueil');
+                montrerImport('responsables');
+            });
+            document.getElementById('goToTasksFlow').addEventListener('click', function() {
+                showSection('toutes-taches');
+                afficherToutesTaches();
+            });
+            document.getElementById('goToProjectsFlow').addEventListener('click', function() {
+                showSection('projets');
+                afficherProjets();
+            });
+            document.getElementById('saveToGistFlow').addEventListener('click', saveToGist);
+            document.getElementById('exportAllFlow').addEventListener('click', exporterHTML);
 
             // Événements pour les détails de tâche
             document.getElementById('backToPrevious').addEventListener('click', function() {
@@ -1793,6 +1883,7 @@ Confirmer l'import ?`;
                 deadlines: deadlinesData
             };
             localStorage.setItem('dashboardData', JSON.stringify(data));
+            markSaved('local');
         }
 
         function formaterDate(dateString) {
@@ -3362,6 +3453,7 @@ if (!askTokenIfNeeded()) return false;
     if (!res.ok) throw new Error("HTTP "+res.status);
     const j = await res.json();
     setKnownVersion(j?.history?.[0]?.version || "");
+    markSaved('gist');
     alert("✅ Sauvegarde dans Gist réussie");
     return true;
 } catch (e) {
@@ -3384,6 +3476,7 @@ async function loadFromGist() {
 
     const data = JSON.parse(content);
     restoreLocalStorage(data.localStorageDump || {});
+    markSaved('gist chargé');
     alert("✅ Chargé depuis Gist — la page va se recharger");
     sessionStorage.setItem("gs_just_loaded_from_gist", "1");
     location.reload();
